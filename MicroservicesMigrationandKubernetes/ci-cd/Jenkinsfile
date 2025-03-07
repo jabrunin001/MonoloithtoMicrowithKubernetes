@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_REGISTRY = "your-registry"
+        SERVICE_NAME = "user-service"
+        KUBERNETES_NAMESPACE = "medium"
+    }
+    
+    stages {
+        stage('Build') {
+            steps {
+                sh 'docker build -t ${DOCKER_REGISTRY}/${SERVICE_NAME}:${BUILD_NUMBER} .'
+            }
+        }
+        
+        stage('Push') {
+            steps {
+                sh 'docker push ${DOCKER_REGISTRY}/${SERVICE_NAME}:${BUILD_NUMBER}'
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                sh '''
+                    kubectl set image deployment/${SERVICE_NAME} ${SERVICE_NAME}=${DOCKER_REGISTRY}/${SERVICE_NAME}:${BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}
+                    kubectl rollout status deployment/${SERVICE_NAME} -n ${KUBERNETES_NAMESPACE}
+                '''
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Deployment failed!'
+        }
+    }
+}
